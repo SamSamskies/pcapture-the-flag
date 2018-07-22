@@ -8,6 +8,7 @@ const file = fs.readFileSync('net.cap')
 const packets = getPackets(file)
 const fileHeader = getFileHeader(file)
 const firstEthernetHeader = getEthernetHeader(packets[0])
+const firstIpHeader = getIpHeader(packets[0])
 
 console.log('Parsed file header:', parseFileHeader(fileHeader))
 console.log('Number of packets:', packets.length);
@@ -15,6 +16,7 @@ console.log('First ethernet header:', firstEthernetHeader)
 console.log('First ethernet header parsed:', parseEthernetHeader(firstEthernetHeader))
 console.log('All packets have same format:', verifyAllPacketsHaveSameIpFormat(packets))
 console.log('Unique MAC addresses:', getUniqueMacAddresses(packets))
+console.log('First IP header:', firstIpHeader)
 
 function getFileHeader(file) {
   return file.slice(0, 24)
@@ -104,7 +106,7 @@ function getUniqueMacAddresses(packets) {
 
 // https://en.wikipedia.org/wiki/IPv4#Header
 function getIpHeader(packet) {
-
+  return packet.slice(18, 38)
 }
 
 // https://en.wikipedia.org/wiki/Transmission_Control_Protocol#TCP_segment_structure
