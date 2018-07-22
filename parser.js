@@ -77,9 +77,9 @@ function parseEthernetHeader(ethernetHeader) {
 }
 
 function verifyAllPacketsHaveSameIpFormat(packets) {
-  const type = parseEthernetHeader(getEthernetHeader(packets[0])).type
+  const parsedEthernetHeaders = packets.map((p) => parseEthernetHeader(getEthernetHeader(p)))
 
-  return packets.every((p) => parseEthernetHeader(getEthernetHeader(p)).type === type)
+  return parsedEthernetHeaders.every(({ type }) => type === parsedEthernetHeaders[0].type)
 }
 
 // https://en.wikipedia.org/wiki/IPv4#Header
