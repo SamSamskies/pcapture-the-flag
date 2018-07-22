@@ -6,12 +6,22 @@ const binary = require('binary')
 
 const file = fs.readFileSync('net.cap')
 const packets = getPackets(file)
+const fileHeader = getFileHeader(file)
 
-console.log(getFileHeader(file))
+console.log(parseFileHeader(fileHeader))
 console.log('packets.length', packets.length);
 
+const firstEthernetHeader = getEthernetHeader(packets[0])
+
+console.log(firstEthernetHeader)
+console.log(parseEthernetHeader(firstEthernetHeader))
+
 function getFileHeader(file) {
-  return binary.parse(file)
+  return file.slice(0, 24)
+}
+
+function parseFileHeader(fileHeader) {
+  return binary.parse(fileHeader)
     .word32lu('magicNumber')
     .word16lu('majorVersion')
     .word16lu('minorVersion')
@@ -49,18 +59,40 @@ function getPackets(file) {
   return packets
 }
 
+// https://en.wikipedia.org/wiki/Ethernet_frame
 function getEthernetHeader(packet) {
-
+  return packet.slice(0, 18)
 }
 
+// what is preamble? Wireshark doesn't include it.
+function parseEthernetHeader(ethernetHeader) {
+  const humanizeMacAddress = (buf) => [...buf.values()].map((x) => x.toString(16)).join(':')
+
+  return {
+    destination: humanizeMacAddress(ethernetHeader.slice(4, 10)),
+    source: humanizeMacAddress(ethernetHeader.slice(10, 16)),
+    type: ethernetHeader.slice(16, 18).toString('hex') === '0800' ? 'IPv4' : 'IPv6'
+  }
+}
+
+// https://en.wikipedia.org/wiki/IPv4#Header
 function getIpHeader(packet) {
 
 }
 
+// https://en.wikipedia.org/wiki/Transmission_Control_Protocol#TCP_segment_structure
 function getTcpHeader(packet) {
 
 }
 
 function getHttpHeader(packet) {
 
+}
+
+function getIpVersion(packets) {
+  // throw error if not all the same ip version
+}
+
+function getMacAddresses(packets) {
+  // verify only two unique MAC addresses
 }
