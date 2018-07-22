@@ -16,6 +16,7 @@ const firstEthernetHeader = getEthernetHeader(packets[0])
 console.log(firstEthernetHeader)
 console.log(parseEthernetHeader(firstEthernetHeader))
 console.log('All packets have same format: ', verifyAllPacketsHaveSameIpFormat(packets))
+printMacAddresses(packets)
 
 function getFileHeader(file) {
   return file.slice(0, 24)
@@ -80,6 +81,14 @@ function verifyAllPacketsHaveSameIpFormat(packets) {
   const parsedEthernetHeaders = packets.map((p) => parseEthernetHeader(getEthernetHeader(p)))
 
   return parsedEthernetHeaders.every(({ type }) => type === parsedEthernetHeaders[0].type)
+}
+
+function printMacAddresses(packets) {
+  const parsedEthernetHeaders = packets.map((p) => parseEthernetHeader(getEthernetHeader(p)))
+
+  parsedEthernetHeaders.forEach(({ source, destination }) => {
+    console.log(`source: ${source}\tdestination: ${destination}`)
+  })
 }
 
 // https://en.wikipedia.org/wiki/IPv4#Header
