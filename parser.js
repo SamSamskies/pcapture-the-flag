@@ -7,12 +7,10 @@ const binary = require('binary')
 const file = fs.readFileSync('net.cap')
 const packets = getPackets(file)
 const fileHeader = getFileHeader(file)
+const firstEthernetHeader = getEthernetHeader(packets[0])
 
 console.log('Parsed file header:', parseFileHeader(fileHeader))
 console.log('Number of packets:', packets.length);
-
-const firstEthernetHeader = getEthernetHeader(packets[0])
-
 console.log('First ethernet header:', firstEthernetHeader)
 console.log('First ethernet header parsed:', parseEthernetHeader(firstEthernetHeader))
 console.log('All packets have same format:', verifyAllPacketsHaveSameIpFormat(packets))
