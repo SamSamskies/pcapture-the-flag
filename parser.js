@@ -117,11 +117,3 @@ function getTcpHeader(packet) {
 function getHttpHeader(packet) {
 
 }
-
-function getIpVersion(packets) {
-  // throw error if not all the same ip version
-}
-
-function getMacAddresses(packets) {
-  // verify only two unique MAC addresses
-}
