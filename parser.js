@@ -3,6 +3,7 @@
 
 const fs = require('fs')
 const binary = require('binary')
+const getProtocolKeyword = require('./getProtocolKeyword')
 
 const file = fs.readFileSync('net.cap')
 const packets = getPackets(file)
@@ -17,6 +18,8 @@ console.log('First ethernet header parsed:', parseEthernetHeader(firstEthernetHe
 console.log('All packets have same format:', verifyAllPacketsHaveSameIpFormat(packets))
 console.log('Unique MAC addresses:', getUniqueMacAddresses(packets))
 console.log('First IP header:', firstIpHeader)
+console.log('First IP header parsed:', parseIpHeader(firstIpHeader))
+console.log('All packets have same transport protocol:', verifyAllPacketsAreUsingSameTransportProtocol(packets))
 
 function getFileHeader(file) {
   return file.slice(0, 24)
@@ -107,6 +110,25 @@ function getUniqueMacAddresses(packets) {
 // https://en.wikipedia.org/wiki/IPv4#Header
 function getIpHeader(packet) {
   return packet.slice(18, 38)
+}
+
+function parseIpHeader(ipHeader) {
+  const humanizeIpAddress = (buf) => [...buf.values()].join('.')
+
+  return {
+    version: ipHeader.readUInt8(0) >> 4,
+    headerLength: (ipHeader.readUInt8(0) & 0xF) * 4,
+    datagramLength: ipHeader.readUInt16BE(2),
+    protocol: getProtocolKeyword(ipHeader.readUInt8(9)),
+    source: humanizeIpAddress(ipHeader.slice(12, 16)),
+    destination: humanizeIpAddress(ipHeader.slice(16, 20))
+  }
+}
+
+function verifyAllPacketsAreUsingSameTransportProtocol(packets) {
+  const parsedIpHeaders = packets.map((p) => parseIpHeader(getIpHeader(p)))
+
+  return parsedIpHeaders.every(({ protocol }) => protocol === parsedIpHeaders[0].protocol)
 }
 
 // https://en.wikipedia.org/wiki/Transmission_Control_Protocol#TCP_segment_structure
