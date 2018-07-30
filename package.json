@@ -4,7 +4,7 @@
   "description": "",
   "main": "parser.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "debug": "node --inspect --inspect-brk ./parser.js"
   },
   "keywords": [],
   "author": "",
