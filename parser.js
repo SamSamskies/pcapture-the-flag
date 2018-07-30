@@ -12,7 +12,9 @@ const packets = getPackets(file)
 const fileHeader = getFileHeader(file)
 const firstEthernetHeader = getEthernetHeader(packets[0], IP_HEADER_OFFSET)
 const firstIpHeaderLength = getIpHeaderLength(packets[0], IP_HEADER_OFFSET)
-const firstIpHeader = getIpHeader(packets[0], IP_HEADER_OFFSET, IP_HEADER_OFFSET + firstIpHeaderLength)
+const tcpHeaderOffset = IP_HEADER_OFFSET + firstIpHeaderLength
+const firstIpHeader = getIpHeader(packets[0], IP_HEADER_OFFSET, tcpHeaderOffset)
+const firstTcpHeader = getTcpHeader(packets[0], tcpHeaderOffset)
 
 console.log('Parsed file header:', parseFileHeader(fileHeader))
 console.log('Number of packets:', packets.length);
@@ -23,6 +25,8 @@ console.log('Unique MAC addresses:', getUniqueMacAddresses(packets))
 console.log('First IP header:', firstIpHeader)
 console.log('First IP header parsed:', parseIpHeader(firstIpHeader))
 console.log('All packets have same transport protocol:', verifyAllPacketsAreUsingSameTransportProtocol(packets))
+console.log('First TCP header:', firstTcpHeader)
+console.log('First TCP header parsed:', parseTcpHeader(firstTcpHeader))
 
 function getFileHeader(file) {
   return file.slice(0, 24)
@@ -144,8 +148,17 @@ function verifyAllPacketsAreUsingSameTransportProtocol(packets) {
 }
 
 // https://en.wikipedia.org/wiki/Transmission_Control_Protocol#TCP_segment_structure
-function getTcpHeader(packet) {
+function getTcpHeader(packet, start) {
+  return packet.slice(start)
+}
 
+function parseTcpHeader(tcpHeader) {
+  return {
+    sourcePort: tcpHeader.readUInt16BE(0),
+    destinationPort: tcpHeader.readUInt16BE(2),
+    sequenceNumber: tcpHeader.readUInt32BE(4),
+    headerLength: (tcpHeader.readUInt8(12) >> 4) * 4
+  }
 }
 
 function getHttpHeader(packet) {
