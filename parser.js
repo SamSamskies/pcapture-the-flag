@@ -14,7 +14,32 @@ const firstEthernetHeader = getEthernetHeader(packets[0], IP_HEADER_OFFSET)
 const firstIpHeaderLength = getIpHeaderLength(packets[0], IP_HEADER_OFFSET)
 const tcpHeaderOffset = IP_HEADER_OFFSET + firstIpHeaderLength
 const firstIpHeader = getIpHeader(packets[0], IP_HEADER_OFFSET, tcpHeaderOffset)
+const firstParsedIpHeader = parseIpHeader(firstIpHeader)
+const serverIp = firstParsedIpHeader.destination
 const firstTcpHeader = getTcpHeader(packets[0], tcpHeaderOffset)
+const firstParsedTcpHeader = parseTcpHeader(firstTcpHeader)
+const uniqueSequenceNumbers = new Set()
+const data = packets.reduce((acc, p) => {
+  const ipHeaderLength = getIpHeaderLength(p, IP_HEADER_OFFSET)
+  const tcpHeaderOffset = IP_HEADER_OFFSET + ipHeaderLength
+  const ipHeader = getIpHeader(p, IP_HEADER_OFFSET, tcpHeaderOffset)
+  const parsedIpHeader = parseIpHeader(ipHeader)
+  const tcpHeader = getTcpHeader(p, tcpHeaderOffset)
+  const parsedTcpHeader = parseTcpHeader(tcpHeader)
+  const httpData = getHttpData(p, tcpHeaderOffset + parsedTcpHeader.headerLength)
+
+  if (httpData.length > 0 && !uniqueSequenceNumbers.has(parsedTcpHeader.sequenceNumber) && parsedIpHeader.source === serverIp) {
+    acc.push({ sequenceNumber: parsedTcpHeader.sequenceNumber, data: httpData })
+    uniqueSequenceNumbers.add(parsedTcpHeader.sequenceNumber)
+  }
+
+  return acc
+}, [])
+  .sort((a, b) => a.sequenceNumber - b.sequenceNumber)
+  .map(({ data }) => data)
+const httpResponse = Buffer.concat(data)
+const httpResponseHeader = data.toString().split('\r\n\r\n')[0]
+const httpResponseBody = httpResponse.slice(httpResponse.indexOf('\r\n\r\n') + 4)
 
 console.log('Parsed file header:', parseFileHeader(fileHeader))
 console.log('Number of packets:', packets.length);
@@ -23,10 +48,21 @@ console.log('First ethernet header parsed:', parseEthernetHeader(firstEthernetHe
 console.log('All packets have same format:', verifyAllPacketsHaveSameIpFormat(packets))
 console.log('Unique MAC addresses:', getUniqueMacAddresses(packets))
 console.log('First IP header:', firstIpHeader)
-console.log('First IP header parsed:', parseIpHeader(firstIpHeader))
+console.log('First IP header parsed:', firstParsedIpHeader)
 console.log('All packets have same transport protocol:', verifyAllPacketsAreUsingSameTransportProtocol(packets))
 console.log('First TCP header:', firstTcpHeader)
-console.log('First TCP header parsed:', parseTcpHeader(firstTcpHeader))
+console.log('First TCP header parsed:', firstParsedTcpHeader)
+console.log()
+console.log(httpResponseHeader)
+console.log()
+
+// fs.writeFile('secret.jpg', httpResponseBody, 'binary', (err) => {
+//   if (err) {
+//     console.log(err)
+//   } else {
+//     console.log('Secret picture saved!')
+//   }
+// })
 
 function getFileHeader(file) {
   return file.slice(0, 24)
@@ -161,6 +197,6 @@ function parseTcpHeader(tcpHeader) {
   }
 }
 
-function getHttpHeader(packet) {
-
+function getHttpData(packet, start) {
+  return packet.slice(start)
 }
