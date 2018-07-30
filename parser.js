@@ -15,31 +15,36 @@ const firstIpHeaderLength = getIpHeaderLength(packets[0], IP_HEADER_OFFSET)
 const tcpHeaderOffset = IP_HEADER_OFFSET + firstIpHeaderLength
 const firstIpHeader = getIpHeader(packets[0], IP_HEADER_OFFSET, tcpHeaderOffset)
 const firstParsedIpHeader = parseIpHeader(firstIpHeader)
-const serverIp = firstParsedIpHeader.destination
+const clientIp = firstParsedIpHeader.source
 const firstTcpHeader = getTcpHeader(packets[0], tcpHeaderOffset)
 const firstParsedTcpHeader = parseTcpHeader(firstTcpHeader)
 const uniqueSequenceNumbers = new Set()
-const data = packets.reduce((acc, p) => {
+const parsedPackets = packets.map((p) => {
   const ipHeaderLength = getIpHeaderLength(p, IP_HEADER_OFFSET)
   const tcpHeaderOffset = IP_HEADER_OFFSET + ipHeaderLength
-  const ipHeader = getIpHeader(p, IP_HEADER_OFFSET, tcpHeaderOffset)
-  const parsedIpHeader = parseIpHeader(ipHeader)
-  const tcpHeader = getTcpHeader(p, tcpHeaderOffset)
-  const parsedTcpHeader = parseTcpHeader(tcpHeader)
-  const httpData = getHttpData(p, tcpHeaderOffset + parsedTcpHeader.headerLength)
+  const parsedTcpHeader = parseTcpHeader(getTcpHeader(p, tcpHeaderOffset))
 
-  if (httpData.length > 0 && !uniqueSequenceNumbers.has(parsedTcpHeader.sequenceNumber) && parsedIpHeader.source === serverIp) {
-    acc.push({ sequenceNumber: parsedTcpHeader.sequenceNumber, data: httpData })
-    uniqueSequenceNumbers.add(parsedTcpHeader.sequenceNumber)
+  return {
+    ethernet: parseEthernetHeader(getEthernetHeader(p, IP_HEADER_OFFSET)),
+    ip: parseIpHeader(getIpHeader(p, IP_HEADER_OFFSET, tcpHeaderOffset)),
+    tcp: parsedTcpHeader,
+    http: getHttpData(p, tcpHeaderOffset + parsedTcpHeader.headerLength)
+  }
+})
+const data = parsedPackets.reduce((acc, p) => {
+  if (p.http.length > 0 && !uniqueSequenceNumbers.has(p.tcp.sequenceNumber) && p.ip.destination === clientIp) {
+    acc.push(p)
+    uniqueSequenceNumbers.add(p.tcp.sequenceNumber)
   }
 
   return acc
-}, [])
-  .sort((a, b) => a.sequenceNumber - b.sequenceNumber)
-  .map(({ data }) => data)
-const httpResponse = Buffer.concat(data)
-const httpResponseHeader = data.toString().split('\r\n\r\n')[0]
-const httpResponseBody = httpResponse.slice(httpResponse.indexOf('\r\n\r\n') + 4)
+}, []).sort((a, b) => a.tcp.sequenceNumber - b.tcp.sequenceNumber)
+
+console.log('data', data)
+
+const httpResponse = Buffer.concat(data.map(({ http }) => http))
+const httpResponseHeader = data[0].http.toString().split('\r\n\r\n')[0]
+const httpResponseBody = httpResponse.slice(httpResponse.indexOf('\r\n\r\n') + 5)
 
 console.log('Parsed file header:', parseFileHeader(fileHeader))
 console.log('Number of packets:', packets.length);
@@ -55,6 +60,9 @@ console.log('First TCP header parsed:', firstParsedTcpHeader)
 console.log()
 console.log(httpResponseHeader)
 console.log()
+console.log('httpResponse length', httpResponse.length)
+console.log('httpResponseBody', httpResponseBody.length)
+console.log('EOI', httpResponseBody.indexOf(0xffd9)) // EOI seems out of place
 
 // fs.writeFile('secret.jpg', httpResponseBody, 'binary', (err) => {
 //   if (err) {
