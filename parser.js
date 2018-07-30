@@ -9,7 +9,8 @@ const file = fs.readFileSync('net.cap')
 const packets = getPackets(file)
 const fileHeader = getFileHeader(file)
 const firstEthernetHeader = getEthernetHeader(packets[0])
-const firstIpHeader = getIpHeader(packets[0])
+const firstIpHeaderLength = getIpHeaderLength(packets[0])
+const firstIpHeader = getIpHeader(packets[0], getIpHeaderLength(packets[0]))
 
 console.log('Parsed file header:', parseFileHeader(fileHeader))
 console.log('Number of packets:', packets.length);
@@ -18,7 +19,7 @@ console.log('First ethernet header parsed:', parseEthernetHeader(firstEthernetHe
 console.log('All packets have same format:', verifyAllPacketsHaveSameIpFormat(packets))
 console.log('Unique MAC addresses:', getUniqueMacAddresses(packets))
 console.log('First IP header:', firstIpHeader)
-console.log('First IP header parsed:', parseIpHeader(firstIpHeader))
+console.log('First IP header parsed:', parseIpHeader(firstIpHeader, firstIpHeaderLength))
 console.log('All packets have same transport protocol:', verifyAllPacketsAreUsingSameTransportProtocol(packets))
 
 function getFileHeader(file) {
@@ -108,16 +109,22 @@ function getUniqueMacAddresses(packets) {
 }
 
 // https://en.wikipedia.org/wiki/IPv4#Header
-function getIpHeader(packet) {
-  return packet.slice(18, 38)
+function getIpHeader(packet, headerLength) {
+  const start = 18
+
+  return packet.slice(start, start + headerLength)
 }
 
-function parseIpHeader(ipHeader) {
+function getIpHeaderLength(packet) {
+  return (packet.slice(18,19).readUInt8(0) & 0xF) * 4
+}
+
+function parseIpHeader(ipHeader, headerLength) {
   const humanizeIpAddress = (buf) => [...buf.values()].join('.')
 
   return {
     version: ipHeader.readUInt8(0) >> 4,
-    headerLength: (ipHeader.readUInt8(0) & 0xF) * 4,
+    headerLength,
     datagramLength: ipHeader.readUInt16BE(2),
     protocol: getProtocolKeyword(ipHeader.readUInt8(9)),
     source: humanizeIpAddress(ipHeader.slice(12, 16)),
@@ -126,7 +133,12 @@ function parseIpHeader(ipHeader) {
 }
 
 function verifyAllPacketsAreUsingSameTransportProtocol(packets) {
-  const parsedIpHeaders = packets.map((p) => parseIpHeader(getIpHeader(p)))
+  const parsedIpHeaders = packets.map((p) => {
+    const headerLength = getIpHeaderLength(p)
+    const ipHeader = getIpHeader(p, getIpHeaderLength(p))
+
+    return parseIpHeader(ipHeader, headerLength)
+  })
 
   return parsedIpHeaders.every(({ protocol }) => protocol === parsedIpHeaders[0].protocol)
 }
