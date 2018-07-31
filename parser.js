@@ -39,12 +39,9 @@ const data = parsedPackets.reduce((acc, p) => {
 
   return acc
 }, []).sort((a, b) => a.tcp.sequenceNumber - b.tcp.sequenceNumber)
-
-console.log('data', data)
-
 const httpResponse = Buffer.concat(data.map(({ http }) => http))
-const httpResponseHeader = data[0].http.toString().split('\r\n\r\n')[0]
-const httpResponseBody = httpResponse.slice(httpResponse.indexOf('\r\n\r\n') + 5)
+const httpResponseHeader = httpResponse.slice(2, httpResponse.indexOf('\r\n\r\n')).toString()
+const httpResponseBody = httpResponse.slice(httpResponse.indexOf('\r\n\r\n') + 4)
 
 console.log('Parsed file header:', parseFileHeader(fileHeader))
 console.log('Number of packets:', packets.length);
@@ -60,17 +57,14 @@ console.log('First TCP header parsed:', firstParsedTcpHeader)
 console.log()
 console.log(httpResponseHeader)
 console.log()
-console.log('httpResponse length', httpResponse.length)
-console.log('httpResponseBody', httpResponseBody.length)
-console.log('EOI', httpResponseBody.indexOf(0xffd9)) // EOI seems out of place
 
-// fs.writeFile('secret.jpg', httpResponseBody, 'binary', (err) => {
-//   if (err) {
-//     console.log(err)
-//   } else {
-//     console.log('Secret picture saved!')
-//   }
-// })
+fs.writeFile('secret.jpg', httpResponseBody, 'binary', (err) => {
+  if (err) {
+    console.log(err)
+  } else {
+    console.log('Secret picture saved!')
+  }
+})
 
 function getFileHeader(file) {
   return file.slice(0, 24)
@@ -101,7 +95,7 @@ function getPackets(file) {
 
       this.skip(8)
         .word32lu('packetLength')
-        .buffer('packet', vars.packetLength)
+        .buffer('packet', vars.packetLength + 4)
         .tap(function (vars) {
           if (vars.packetLength === null) {
             return
@@ -109,7 +103,6 @@ function getPackets(file) {
 
           packets.push(vars.packet)
         })
-        .skip(4)
     })
 
   return packets
